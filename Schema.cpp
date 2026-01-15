@@ -46,7 +46,7 @@ Row* Table::ParseRow(stringstream &ss){
             size_t len = min(str.size(), c->size-1);
             void* dest = r->value[c->columnName];
             memset(dest, 0, c->size);
-            memcpy(dest, &str[0], len+1);
+            memcpy(dest, &str[0], len);
         }
     }
     return r;
