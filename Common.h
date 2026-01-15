@@ -7,6 +7,10 @@
 #include <cstring>
 #include <sstream>
 #include <iomanip>
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/stat.h>
+#include <fstream>
 
 using namespace std;
 

@@ -6,10 +6,22 @@
 #include <sstream>
 
 #include "CommandDispatcher.h"
+#include "Database.h"
 
+Database* DB_INSTANCE = nullptr;
 
 int main(int argc, char* argv[]){
-    while(true){
+    if(argc<2){
+        cout << "Need filename" <<endl;
+        return -1;
+    }
+
+    string dbName = argv[1];
+
+    DB_INSTANCE = new Database(dbName);
+
+    
+    while(DB_INSTANCE->running){
         std::cout << "TETO_DB >> ";
 
         std::string command;
@@ -30,6 +42,9 @@ int main(int argc, char* argv[]){
         }
 
     }
+
+    cout << "Saving and exiting..." << endl;
+    delete DB_INSTANCE;
 
     return 0;
 }

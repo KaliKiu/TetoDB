@@ -18,17 +18,23 @@ Row::~Row(){
     for(auto &p : value) free(p.second);
 }
 
-Table::Table(const string &name) 
-    : tableName(name), rowCount(0), rowSize(0)
-{
-    for(int i = 0;i<MAX_PAGE;i++) pages[i] = nullptr;
-}
+Table::Table(const string &name, const string &meta) 
+    : tableName(name), rowCount(0), rowSize(0), rowsPerPage(0), pager(new Pager(meta+"_"+name+".db"))
+{}
+
+Table::Table(const string &name, const string &meta, int rowCount) 
+    : tableName(name), rowCount(rowCount), rowSize(0), pager(new Pager(meta+"_"+name+".db"))
+{}
 
 Table::~Table(){
     for(Column* c : schema) delete c;
     schema.clear();
 
-    for(int i = 0;i<MAX_PAGE;i++) free(pages[i]), pages[i] = nullptr;
+    for(int i = 0;i<MAX_PAGE;i++){
+        if(pager->pages[i]) pager->Flush(i, PAGE_SIZE);
+    }
+
+    delete pager;
 }
 
 Row* Table::ParseRow(stringstream &ss){
@@ -79,9 +85,9 @@ void* Table::RowSlot(int rowNum){
 
     if(pageNum >= MAX_PAGE) return nullptr;
 
-    void* page = pages[pageNum];
+    void* page = pager->GetPage(pageNum);
 
-    if(page == nullptr) page = pages[pageNum] = malloc(PAGE_SIZE);
+    if(page == nullptr) page = pager->pages[pageNum] = malloc(PAGE_SIZE);
 
     int offset = rowNum % rowsPerPage * rowSize;
 
@@ -89,81 +95,3 @@ void* Table::RowSlot(int rowNum){
 }
 
 
-
-Database::Database() {}
-
-Database::~Database(){
-    for(auto const& [name, table] : tables) delete table;
-    tables.clear();
-}
-
-Result Database::CreateTable(const string& tableName, stringstream& ss){
-    if(tables.find(tableName) != tables.end()){
-        cout << "Error: Table " << tableName << " already exists." << std::endl;
-        return Result::TABLE_ALREADY_EXISTS;
-    }
-    Table* t = new Table(tableName);
-    tables[tableName] = t;
-
-    string name, type;
-    size_t size, offset;
-    offset = 0;
-    
-
-    while(ss >> name >> type >> size){
-        if(type == "int") t->AddColumn(new Column(name, INT, size, offset));
-        else t->AddColumn(new Column(name, STRING, size, offset));
-
-        offset+=size;
-    }
-
-    return Result::OK;
-}
-
-Table* Database::GetTable(const string& name){
-    if(tables.count(name)) return tables[name];
-    return nullptr;
-}
-
-Result Database::DropTable(const string& name){
-    if(tables.find(name) == tables.end()) return Result::TABLE_NOT_FOUND;
-    
-    delete tables[name]; 
-    tables.erase(name);
-
-    return Result::OK;
-}
-
-Result Database::Insert(const string& name, stringstream& ss){
-    Table* t = GetTable(name);
-    if(!t) return Result::TABLE_NOT_FOUND;
-
-    if(t->rowCount >= t->maxRows) return Result::OUT_OF_STORAGE;
-
-    void* slot = t->RowSlot(t->rowCount);
-    if(!slot) return Result::OUT_OF_STORAGE;
-
-    Row* r = t->ParseRow(ss);
-    t->SerializeRow(r, slot);
-    t->rowCount++;
-
-    delete r;
-    return Result::OK;
-}
-
-vector<Row*> Database::SelectAll(const string &name){
-    Table* t = GetTable(name);
-    if(!t) return {};
-
-    vector<Row*> res;
-    res.clear();
-
-    for(int i = 0; i < t->rowCount; i++){
-        void* slot = t->RowSlot(i);
-        Row* r = new Row(t->schema);
-        t->DeserializeRow(slot, r);
-        res.push_back(r);
-    }
-
-    return res;
-}

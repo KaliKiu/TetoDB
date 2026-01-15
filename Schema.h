@@ -6,6 +6,7 @@
 #include <map>
 #include <sstream>
 #include "Common.h"
+#include "Pager.h"
 
 #define MAX_PAGE 100
 #define PAGE_SIZE 4096
@@ -34,7 +35,8 @@ public:
 
 class Table{
 public:
-    Table(const string &name);
+    Table(const string &name, const string &meta); // make new table
+    Table(const string &name, const string &meta, int rowCount); // load table from disk
     ~Table();
 
     Row* ParseRow(stringstream &ss);
@@ -48,7 +50,7 @@ public:
     string tableName;
     vector<Column*> schema;
     
-    void* pages[MAX_PAGE];
+    Pager* pager;
 
     int rowCount;
     int rowSize;
@@ -57,17 +59,3 @@ public:
 
 };
 
-class Database{
-public:
-    Database();
-    ~Database();
-
-    Result CreateTable(const string& tableName, stringstream & ss);
-    Table* GetTable(const string& name);
-    Result DropTable(const string& name);
-    Result Insert(const string& name, stringstream& ss);
-    vector<Row*> SelectAll(const string& name);
-
-public:
-    std::map<string, Table*> tables;
-};

@@ -2,7 +2,7 @@
 
 #include "CommandDispatcher.h"
 
-Database DB;
+extern Database* DB_INSTANCE;
 
 Result ProcessCommand(string &line){
     stringstream ss;
@@ -12,15 +12,15 @@ Result ProcessCommand(string &line){
 
     ss >> cmd >> keyword >> tableName;
 
-    if(cmd == "create") return DB.CreateTable(tableName, ss);
-    if(cmd == "insert") return DB.Insert(tableName, ss);
-    if(cmd == "drop") return DB.DropTable(tableName);
+    if(cmd == "create") return DB_INSTANCE->CreateTable(tableName, ss);
+    if(cmd == "insert") return DB_INSTANCE->Insert(tableName, ss);
+    if(cmd == "drop") return DB_INSTANCE->DropTable(tableName);
     if(cmd == "select") {
-        Table* t = DB.GetTable(tableName);
+        Table* t = DB_INSTANCE->GetTable(tableName);
 
         if(t==nullptr) return Result::TABLE_NOT_FOUND;
 
-        vector<Row*> rows = DB.SelectAll(tableName);
+        vector<Row*> rows = DB_INSTANCE->SelectAll(tableName);
 
         for(Row* r : rows){
             for(Column* c : t->schema){
@@ -44,14 +44,21 @@ void ProcessDotCommand(string &line){
 
     ss >> cmd;
 
-    if(cmd == ".exit") exit(0);
-    if(cmd == ".help") cout << "Read the docs, i aint helping" << endl;
+    if(cmd == ".exit"){
+        DB_INSTANCE->running = false;
+        return;
+    }
+    if(cmd == ".help"){
+        cout << "Read the docs, i aint helping" << endl;
+        return;
+    }
     if(cmd == ".tables"){
-        for(auto &[name, table] : DB.tables) cout << name << endl;
+        for(auto &[name, table] : DB_INSTANCE->tables) cout << name << endl;
+        return;
     }
     if(cmd == ".schema"){
         ss >> tableName;
-        Table* t = DB.GetTable(tableName);
+        Table* t = DB_INSTANCE->GetTable(tableName);
 
         if(t == nullptr){
             cout << "Name does not exist" << endl;
@@ -61,6 +68,8 @@ void ProcessDotCommand(string &line){
         for(Column* c : t->schema){
             cout<<c->columnName<<' '<<c->type<<' '<<c->size<<' '<<c->offset<<endl;
         }
+
+        return;
 
     }
 } 
