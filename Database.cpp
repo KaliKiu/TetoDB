@@ -5,6 +5,7 @@
 #include "Database.h"
 #include "Schema.h"
 #include "Cursor.h"
+#include "Btree.h"
 
 
 Database::Database(const string& name)
@@ -37,7 +38,11 @@ Result Database::CreateTable(const string& tableName, stringstream& ss){
     
 
     while(ss >> name >> type >> size){
-        if(type == "int") t->AddColumn(new Column(name, INT, size, offset));
+        if(type == "int"){
+            t->AddColumn(new Column(name, INT, 4, offset));
+            if(size) t->CreateIndex(name);
+        }
+
         else t->AddColumn(new Column(name, STRING, size, offset));
 
         offset+=size;
@@ -66,10 +71,28 @@ Result Database::Insert(const string& name, stringstream& ss){
 
     if(t->rowCount >= t->maxRows) return Result::OUT_OF_STORAGE;
 
-    Cursor* cursor = t->EndOfTable();
     Row* r = t->ParseRow(ss);
+    if(!r) return Result::INVALID_SCHEMA;
+    
+    Cursor* cursor = t->EndOfTable();
+
     t->SerializeRow(r, cursor->Address());
     t->rowCount++;
+
+    int newId = t->rowCount;
+    for(Column* c : t->schema){
+        if(t->indexPagers.find(c->columnName)!=t->indexPagers.end()){
+            Pager* idxPager = t->indexPagers[c->columnName];
+
+            LeafNode* root = (LeafNode*)idxPager->GetPage(0);
+
+            int32_t value = *(int32_t*)r->value[c->columnName];
+            LeafNodeInsert(root, value, newId);
+
+            idxPager->Flush(0, PAGE_SIZE);
+        }
+
+    }
 
     delete r;
     delete cursor;

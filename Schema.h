@@ -2,9 +2,7 @@
 
 #pragma once
 
-#include <vector>
-#include <map>
-#include <sstream>
+
 #include "Common.h"
 #include "Pager.h"
 
@@ -48,13 +46,16 @@ public:
     void AddColumn(Column* c);
     void* RowSlot(int rowNum);
 
+    void CreateIndex(const string& columnName);
+
     Cursor* StartOfTable();
     Cursor* EndOfTable();
 
 public:
+    string metaName;
     string tableName;
     vector<Column*> schema;
-    
+    map<string, Pager*> indexPagers;
     Pager* pager;
 
     int rowCount;

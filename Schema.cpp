@@ -2,6 +2,7 @@
 
 #include "Cursor.h"
 #include "Schema.h"
+#include "Btree.h"
 
 Column::Column(const string &name, Type type, size_t size, size_t offset)
     : columnName(name), type(type), size(size), offset(offset) {}
@@ -20,11 +21,11 @@ Row::~Row(){
 }
 
 Table::Table(const string &name, const string &meta) 
-    : tableName(name), rowCount(0), rowSize(0), rowsPerPage(0), pager(new Pager(meta+"_"+name+".db"))
+    : tableName(name), rowCount(0), rowSize(0), rowsPerPage(0), metaName(meta), pager(new Pager(meta+"_"+name+".db"))
 {}
 
 Table::Table(const string &name, const string &meta, int rowCount) 
-    : tableName(name), rowCount(rowCount), rowSize(0), pager(new Pager(meta+"_"+name+".db"))
+    : tableName(name), rowCount(rowCount), rowSize(0), metaName(meta), pager(new Pager(meta+"_"+name+".db"))
 {}
 
 Table::~Table(){
@@ -34,7 +35,9 @@ Table::~Table(){
     for(int i = 0;i<MAX_PAGE;i++){
         if(pager->pages[i]) pager->Flush(i, PAGE_SIZE);
     }
-
+    for(auto const& [colName, indexPager] : indexPagers) {
+        delete indexPager;
+    }
     delete pager;
 }
 
@@ -97,6 +100,18 @@ void* Table::RowSlot(int rowNum){
     int offset = rowNum % rowsPerPage * rowSize;
 
     return (char*)page + offset;
+}
+
+void Table::CreateIndex(const string& columnName){
+    string indexFileName = metaName+"_"+tableName+"_"+columnName+".btree";
+    Pager* p = new Pager(indexFileName);
+
+    indexPagers[columnName] = p;
+
+    LeafNode* rootNode = (LeafNode*)p->GetPage(0);
+    InitializeLeafNode(rootNode);
+
+    p->Flush(0, PAGE_SIZE);
 }
 
 Cursor* Table::StartOfTable(){
