@@ -3,8 +3,12 @@
 #pragma once
 
 #include "Common.h"
+
+using namespace std;
+
 class Table;
 class Row;
+
 
 class Database{
 public:
@@ -15,8 +19,8 @@ public:
     Table* GetTable(const string& name);
     Result DropTable(const string& name);
     Result Insert(const string& name, stringstream& ss);
-    vector<Row*> SelectAll(const string& name);
-
+    void SelectAll(Table* t, vector<Row*> &res);
+    void SelectWithRange(Table* t, const string& columnName, int L, int R, vector<Row*>& res);
     void LoadFromMeta();
     void FlushToMeta();
 

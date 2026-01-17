@@ -22,7 +22,14 @@ Result ProcessCommand(string &line){
 
         if(t==nullptr) return Result::TABLE_NOT_FOUND;
 
-        vector<Row*> rows = DB_INSTANCE->SelectAll(tableName);
+        vector<Row*> rows;
+        if(!(ss>>keyword)) DB_INSTANCE->SelectAll(t, rows);
+        else{
+            string columnName;
+            int L, R;
+            ss >> columnName >> L >> R;
+            DB_INSTANCE->SelectWithRange(t, columnName, L, R, rows);
+        }
 
         for(Row* r : rows){
             for(Column* c : t->schema){

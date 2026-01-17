@@ -3,6 +3,8 @@
 #include "Cursor.h"
 #include "Schema.h"
 #include "Btree.h"
+#include "Pager.h"
+
 
 Column::Column(const string &name, Type type, size_t size, size_t offset)
     : columnName(name), type(type), size(size), offset(offset) {}

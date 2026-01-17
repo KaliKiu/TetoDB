@@ -2,6 +2,9 @@
 #pragma once
 
 #include <cstdint>
+#include <vector>
+
+using namespace std;
 
 enum NodeType : uint8_t { INTERNAL, LEAF };
 
@@ -25,6 +28,9 @@ struct LeafNode{
 void InitializeLeafNode(LeafNode* node);
 void LeafNodeInsert(LeafNode* node, int32_t key, int32_t rowId);
 uint16_t LeafNodeFindSlot(LeafNode* node, int32_t targetKey, int32_t targetRowId);
+void LeafNodeSelectRange(LeafNode* node, int L, int R, vector<int>& outRowIds);
+
+
 const uint32_t NODE_SIZE = 4096;
 const uint32_t HEADER_SIZE = sizeof(NodeHeader);
 const uint32_t CELL_SIZE = sizeof(LeafCell);

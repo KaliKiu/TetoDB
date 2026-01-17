@@ -4,13 +4,16 @@
 
 
 #include "Common.h"
-#include "Pager.h"
+
+using namespace std;
 
 
 #define MAX_PAGE 100
 #define PAGE_SIZE 4096
 
 class Cursor;
+class Pager;
+
 
 class Column{
 public:

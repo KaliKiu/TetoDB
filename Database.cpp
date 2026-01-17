@@ -6,6 +6,7 @@
 #include "Schema.h"
 #include "Cursor.h"
 #include "Btree.h"
+#include "Pager.h"
 
 
 Database::Database(const string& name)
@@ -76,9 +77,6 @@ Result Database::Insert(const string& name, stringstream& ss){
     
     Cursor* cursor = t->EndOfTable();
 
-    t->SerializeRow(r, cursor->Address());
-    t->rowCount++;
-
     int newId = t->rowCount;
     for(Column* c : t->schema){
         if(t->indexPagers.find(c->columnName)!=t->indexPagers.end()){
@@ -94,16 +92,16 @@ Result Database::Insert(const string& name, stringstream& ss){
 
     }
 
+    t->SerializeRow(r, cursor->Address());
+    t->rowCount++;
+
     delete r;
     delete cursor;
     return Result::OK;
 }
 
-vector<Row*> Database::SelectAll(const string &name){
-    Table* t = GetTable(name);
-    if(!t) return {};
+void Database::SelectAll(Table* t, vector<Row*>& res){
 
-    vector<Row*> res;
     res.clear();
     
     Cursor* cursor = t->StartOfTable();
@@ -114,8 +112,41 @@ vector<Row*> Database::SelectAll(const string &name){
     }
     
     delete cursor;
+}
 
-    return res;
+void Database::SelectWithRange(Table* t, const string& columnName, int L, int R, vector<Row*>& res){
+
+    res.clear();
+
+    if(t->indexPagers.count(columnName) == 0){
+        Cursor* cursor = t->StartOfTable();
+        for(cursor; !cursor->endOfTable; cursor->AdvanceCursor()){
+            Row* r = new Row(t->schema);
+            t->DeserializeRow(cursor->Address(), r);
+            int val = *(int*)r->value[columnName];
+            if(L<=val&&val<=R) res.push_back(r);
+            else delete r;
+        }
+        
+        delete cursor;
+
+        return;
+    }
+
+    Pager* idxPager = t->indexPagers[columnName];
+    LeafNode* root = (LeafNode*)idxPager->GetPage(0);
+
+    vector<int> selectedRowIds;
+    LeafNodeSelectRange(root, L, R, selectedRowIds);
+
+    sort(selectedRowIds.begin(), selectedRowIds.end());
+    for(int rowId : selectedRowIds){
+        Row* r = new Row(t->schema);
+        void* src = t->RowSlot(rowId);
+        t->DeserializeRow(src, r);
+        res.push_back(r);
+    }
+
 }
 
 void Database::FlushToMeta() {

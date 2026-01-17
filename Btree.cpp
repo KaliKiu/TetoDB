@@ -44,4 +44,13 @@ void LeafNodeInsert(LeafNode* node, int32_t key, int32_t rowId){
     node->header.numCells++;
 }
 
+void LeafNodeSelectRange(LeafNode* node, int L, int R, vector<int>& outRowIds){
+    for(uint16_t i = 0; i<=node->header.numCells; i++){
+        int key = node->cells[i].key;
+        if(key < L) continue;
+        if(key>R) continue;
+        outRowIds.push_back(node->cells[i].rowId);
+    }
+}
+
 

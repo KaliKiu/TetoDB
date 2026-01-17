@@ -2,14 +2,16 @@
 
 #pragma once
 
-#include "Common.h"
+#include <string>
+
+using namespace std;
 
 #define MAX_PAGES 100
 #define PAGE_SIZE 4096
 
 class Pager {
 public:
-    Pager(const std::string& filename);
+    Pager(const string& filename);
     ~Pager();
 
     void* GetPage(int pageNum);

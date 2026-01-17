@@ -1,7 +1,13 @@
 // Pager.cpp
 
 #include "Pager.h"
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/stat.h>
+#include <fstream>
+#include <iostream>
 
+using namespace std;
 
 Pager::Pager(const std::string& filename){
     fileDescriptor = open(filename.c_str(), O_RDWR | O_CREAT, S_IWUSR | S_IRUSR);
@@ -63,13 +69,13 @@ void Pager::Flush(int pageNum, size_t size){
 
     off_t offset = lseek(fileDescriptor, pageNum * PAGE_SIZE, SEEK_SET);
     if(offset == -1){
-        std::cerr << "Error seeking file." << std::endl;
+        cerr << "Error seeking file." << std::endl;
         return;
     }
 
     ssize_t bytesWritten = write(fileDescriptor, pages[pageNum], size);
     if(bytesWritten == -1){
-        std::cerr << "Error writing to file." << std::endl;
+        cerr << "Error writing to file." << std::endl;
         return;
     }
 
