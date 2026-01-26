@@ -156,5 +156,22 @@ void ExecuteCommand(string &line){
         
         PrintTable(rows, t);
     }
+    else if (cmd.type == "DELETE") {
+        Table* t = DB_INSTANCE->GetTable(cmd.tableName);
+        if (!t) { cout << "Error: Table '" << cmd.tableName << "' not found." << endl; return; }
+
+        
+        if (cmd.args.empty()) {
+            DB_INSTANCE->DeleteAll(t);
+        } else {
+            // Args are [col, min, max]
+            string col = cmd.args[0];
+            int l = stoi(cmd.args[1]);
+            int r = stoi(cmd.args[2]);
+            DB_INSTANCE->DeleteWithRange(t, col, l, r);
+        }
+
+        cout<<"deleted ok"<<endl;
+    }
 
 }

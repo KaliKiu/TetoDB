@@ -3,6 +3,7 @@
 #include "Common.h"
 #include "Btree.h"
 #include "Pager.h"
+#include "Schema.h"
 
 #include <cstring>
 #include <iostream>
@@ -128,71 +129,64 @@ void InsertIntoParent(Pager* pager, NodeHeader* leftChild, int32_t key, int32_t 
 }
 
 
-void LeafNodeInsertNonFull(LeafNode* node, int32_t key, int32_t rowId){
-    uint32_t l = 0;
-    uint32_t r = node->header.numCells;
+bool LeafNodeInsertNonFull(Table* t, LeafNode* node, int32_t key, int32_t rowId){
+    uint32_t slot = LeafNodeFindSlot(node, key, rowId);
+    bool isDeleted = t->IsRowDeleted(node->cells[slot].rowId);
 
-    while(l<r){
-        uint32_t mid = l+r>>1;
-        uint32_t midKey = node->cells[mid].key;
-        uint32_t midRowId = node->cells[mid].rowId;
+    if(node->header.numCells >= LEAF_NODE_MAX_CELLS && !isDeleted) return 0;
 
-        if(midKey<key || (midKey == key && midRowId < rowId)){
-            l = mid+1;
+    if(!isDeleted){
+        int cellsToMove = node->header.numCells - slot;
+        if(cellsToMove > 0){
+            void* src = &node->cells[slot];
+            void* dest = &node->cells[slot+1];
+            memmove(dest, src, cellsToMove*CELL_SIZE);
         }
-        else{
-            r = mid;
-        }
+        node->header.numCells++;
     }
 
-    int cellsToMove = node->header.numCells - l;
-    if(cellsToMove > 0){
-        void* src = &node->cells[l];
-        void* dest = &node->cells[l+1];
-        memmove(dest, src, cellsToMove*CELL_SIZE);
-    }
-
-    node->cells[l].key = key;
-    node->cells[l].rowId = rowId;
-    node->header.numCells++;
+    node->cells[slot].key = key;
+    node->cells[slot].rowId = rowId;  
+    return 1;
 }
 
-InsertResult LeafNodeInsert(LeafNode* node, Pager* pager, int32_t key, int32_t rowId){
-    if(node->header.numCells >= LEAF_NODE_MAX_CELLS){
-        int newPageNum = pager->GetUnusedPageNum();
-        
-        LeafNode* rightNode = (LeafNode*) pager->GetPage(newPageNum);
-        InitializeLeafNode(rightNode);
-        rightNode->header.isRoot = 0;
-        rightNode->header.parent = node->header.parent;
+InsertResult LeafNodeInsert(Table* t, LeafNode* node, Pager* pager, int32_t key, int32_t rowId){
 
-        rightNode->nextLeaf = node->nextLeaf;
-        node->nextLeaf = newPageNum;
+    if(LeafNodeInsertNonFull(t, node, key, rowId)) return {true, false, 0, 0, 0};
 
-        int splitIdx = (LEAF_NODE_MAX_CELLS+1)/2;
-        int cellsMoved = node->header.numCells-splitIdx;
 
-        void* src = &node->cells[splitIdx];
-        void* dest = &rightNode->cells[0];
-        memcpy(dest, src, cellsMoved*CELL_SIZE);
+    int newPageNum = pager->GetUnusedPageNum();
+    
+    LeafNode* rightNode = (LeafNode*) pager->GetPage(newPageNum);
+    InitializeLeafNode(rightNode);
+    rightNode->header.isRoot = 0;
+    rightNode->header.parent = node->header.parent;
 
-        node->header.numCells = splitIdx;
-        rightNode->header.numCells = cellsMoved;
+    rightNode->nextLeaf = node->nextLeaf;
+    node->nextLeaf = newPageNum;
 
-        int32_t splitKey = rightNode->cells[0].key;
-        int32_t splitRowId = rightNode->cells[0].rowId;
+    int splitIdx = (LEAF_NODE_MAX_CELLS+1)/2;
+    int cellsMoved = node->header.numCells-splitIdx;
 
-        if(key>=splitKey) LeafNodeInsertNonFull(rightNode, key, rowId);
-        else LeafNodeInsertNonFull(node, key, rowId);
+    void* src = &node->cells[splitIdx];
+    void* dest = &rightNode->cells[0];
+    memcpy(dest, src, cellsMoved*CELL_SIZE);
 
-        
+    node->header.numCells = splitIdx;
+    rightNode->header.numCells = cellsMoved;
 
-        return {true, true, splitKey, splitRowId, (uint32_t)newPageNum};
-    }
+    int32_t splitKey = rightNode->cells[0].key;
+    int32_t splitRowId = rightNode->cells[0].rowId;
 
-    LeafNodeInsertNonFull(node, key, rowId);
+    if(key>=splitKey) LeafNodeInsertNonFull(t, rightNode, key, rowId);
+    else LeafNodeInsertNonFull(t, node, key, rowId);
 
-    return {true, false, 0, 0, 0};
+    
+
+    return {true, true, splitKey, splitRowId, (uint32_t)newPageNum};
+
+
+    
 }
 
 InsertResult InternalNodeInsert(InternalNode* node, Pager* pager, int32_t key, int32_t rowId, uint32_t rightChildPage){
@@ -263,13 +257,59 @@ InsertResult InternalNodeInsert(InternalNode* node, Pager* pager, int32_t key, i
     return {true, true, promotedKey, promotedRowId, (uint32_t)newPageNum};
 }
 
-void LeafNodeSelectRange(LeafNode* node, int L, int R, vector<int>& outRowIds){
-    for(uint16_t i = 0; i<node->header.numCells; i++){
-        int key = node->cells[i].key;
-        if(key < L) continue;
-        if(key>R) break;
-        outRowIds.push_back(node->cells[i].rowId);
+void LeafNodeSelectRange(Table* t, LeafNode* node, int L, int R, vector<int>& outRowIds){
+    int p = 0;
+    for(int q = 0;q<node->header.numCells;q++){
+        uint32_t rowId = node->cells[q].rowId;
+        if(t->IsRowDeleted(rowId)) continue;
+
+        int32_t key = node->cells[q].key;
+        if(L<=key && key<=R) outRowIds.push_back(rowId);
+
+        if(p!=q) memcpy(&node->cells[p], &node->cells[q], CELL_SIZE);
+        p++;
     }
+
+    node->header.numCells = p;
+
 }
 
+void LeafNodeDeleteRange(Table* t, LeafNode* node, int32_t L, int32_t R){
+    int p = 0;
+    for(int q = 0;q<node->header.numCells;q++){
+        uint32_t rowId = node->cells[q].rowId;
+        if(t->IsRowDeleted(rowId)) continue;
+
+        int32_t key = node->cells[q].key;
+        if(L<=key && key<=R){
+            t->MarkRowDeleted(rowId);
+            continue;
+        }
+
+        if(p!=q) memcpy(&node->cells[p], &node->cells[q], CELL_SIZE);
+        p++;
+    }
+
+    node->header.numCells = p;
+}
+
+void BtreeDelete(Table* t, Pager* pager, int32_t L, int32_t R){
+    uint32_t leafPageNum = BtreeFindLeaf(pager,0,L,0);
+
+    bool firstPage = 1;
+    
+    while(leafPageNum != 0 || (firstPage && leafPageNum == 0)){
+        LeafNode* leaf = (LeafNode*)pager->GetPage(leafPageNum);
+        LeafNodeDeleteRange(t, leaf, L, R);
+
+        if(leaf->header.numCells > 0){
+            int lastKey = leaf->cells[leaf->header.numCells - 1].key;
+            if(lastKey > R) break;
+        }
+        firstPage = 0;
+        leafPageNum = leaf->nextLeaf;
+        //pager->Flush(leafPageNum, PAGE_SIZE);
+    }
+
+}
 

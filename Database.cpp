@@ -1,10 +1,10 @@
 // Database.cpp
 
 #include <vector>
+#include <stack>
 #include <map>
 #include "Database.h"
 #include "Schema.h"
-#include "Cursor.h"
 #include "Btree.h"
 #include "Pager.h"
 
@@ -35,13 +35,14 @@ Result Database::CreateTable(const string& tableName, stringstream& ss){
 
     string name, type;
     size_t size, offset;
-    offset = 0;
+    offset = Table::ROW_HEADER_SIZE;
     
 
     while(ss >> name >> type >> size){
         if(type == "int"){
             t->AddColumn(new Column(name, INT, 4, offset));
             if(size) t->CreateIndex(name);
+            size = 4;
         }
 
         else t->AddColumn(new Column(name, STRING, size, offset));
@@ -70,14 +71,15 @@ Result Database::Insert(const string& name, stringstream& ss){
     Table* t = GetTable(name);
     if(!t) return Result::TABLE_NOT_FOUND;
 
-    //if(t->rowCount >= t->maxRows) return Result::OUT_OF_STORAGE;
-
     Row* r = t->ParseRow(ss);
+
     if(!r) return Result::INVALID_SCHEMA;
     
-    Cursor* cursor = t->EndOfTable();
 
-    int newRowId = t->rowCount;
+    int newRowId = t->GetNextRowId();
+    //cout<<"new row id "<<newRowId<<endl;
+
+    
     for(Column* c : t->schema){
         if(t->indexPagers.find(c->columnName)!=t->indexPagers.end()){
             Pager* idxPager = t->indexPagers[c->columnName];
@@ -86,7 +88,7 @@ Result Database::Insert(const string& name, stringstream& ss){
             LeafNode* leaf = (LeafNode*)idxPager->GetPage(leafPageNum);
 
             
-            InsertResult res = LeafNodeInsert(leaf, idxPager, value, newRowId);
+            InsertResult res = LeafNodeInsert(t, leaf, idxPager, value, newRowId);
             if(res.didSplit){
                 if(leaf->header.isRoot) CreateNewRoot((NodeHeader*)leaf, idxPager, res.splitKey, res.splitRowId, res.rightChildPageNum);
                 else{
@@ -95,19 +97,16 @@ Result Database::Insert(const string& name, stringstream& ss){
             
             } 
             
-            idxPager->Flush(0, PAGE_SIZE);
-            if(res.didSplit) idxPager->Flush(res.rightChildPageNum, PAGE_SIZE);
-
-            
+            // idxPager->Flush(0, PAGE_SIZE);
+            // if(res.didSplit) idxPager->Flush(res.rightChildPageNum, PAGE_SIZE);
         }
 
     }
 
-    t->SerializeRow(r, cursor->Address());
-    t->rowCount++;
+    t->SerializeRow(r, t->RowSlot(newRowId));
 
     delete r;
-    delete cursor;
+
     return Result::OK;
 }
 
@@ -115,14 +114,19 @@ void Database::SelectAll(Table* t, vector<Row*>& res){
 
     res.clear();
     
-    Cursor* cursor = t->StartOfTable();
-    for(cursor; !cursor->endOfTable; cursor->AdvanceCursor()){
+    for(uint32_t i = 0;i<t->rowCount; i++){
+        if(t->IsRowDeleted(i)) continue;
         Row* r = new Row(t->schema);
-        t->DeserializeRow(cursor->Address(), r);
+        void* slot = t->RowSlot(i);
+        t->DeserializeRow(slot, r);
         res.push_back(r);
     }
-    
-    delete cursor;
+}
+
+void Database::DeleteAll(Table* t){
+    for(uint32_t i = 0;i<t->rowCount; i++){
+        t->MarkRowDeleted(i);
+    }
 }
 
 void Database::SelectWithRange(Table* t, const string& columnName, int L, int R, vector<Row*>& res){
@@ -130,17 +134,16 @@ void Database::SelectWithRange(Table* t, const string& columnName, int L, int R,
     res.clear();
 
     if(t->indexPagers.count(columnName) == 0){
-        Cursor* cursor = t->StartOfTable();
-        for(cursor; !cursor->endOfTable; cursor->AdvanceCursor()){
+        
+        for(uint32_t i = 0; i<t->rowCount; i++){
+            if(t->IsRowDeleted(i)) continue;
             Row* r = new Row(t->schema);
-            t->DeserializeRow(cursor->Address(), r);
+            void* slot = t->RowSlot(i);
+            t->DeserializeRow(slot, r);
             int val = *(int*)r->value[columnName];
             if(L<=val&&val<=R) res.push_back(r);
             else delete r;
         }
-        
-        delete cursor;
-
         return;
     }
 
@@ -153,7 +156,7 @@ void Database::SelectWithRange(Table* t, const string& columnName, int L, int R,
     
     while(leafPageNum != 0 || (firstPage && leafPageNum == 0)){
         LeafNode* leaf = (LeafNode*)idxPager->GetPage(leafPageNum);
-        LeafNodeSelectRange(leaf, L, R, selectedRowIds);
+        LeafNodeSelectRange(t, leaf, L, R, selectedRowIds);
 
         if(leaf->header.numCells > 0){
             int lastKey = leaf->cells[leaf->header.numCells - 1].key;
@@ -166,12 +169,34 @@ void Database::SelectWithRange(Table* t, const string& columnName, int L, int R,
 
     sort(selectedRowIds.begin(), selectedRowIds.end());
     for(int rowId : selectedRowIds){
+        if(t->IsRowDeleted(rowId)) continue;
         Row* r = new Row(t->schema);
         void* src = t->RowSlot(rowId);
         t->DeserializeRow(src, r);
         res.push_back(r);
     }
 
+}
+
+void Database::DeleteWithRange(Table* t, const string& columnName, int L, int R){
+    if(t->indexPagers.count(columnName) == 0){
+        for(uint32_t i = 0; i<t->rowCount; i++){
+            if(t->IsRowDeleted(i)) continue;
+            
+            void* slot = t->RowSlot(i);
+            Row* r = new Row(t->schema);
+            t->DeserializeRow(slot, r);
+            
+            int val = *(int*)r->value[columnName];
+            if(L<=val&&val<=R) t->MarkRowDeleted(i);
+            delete r;
+        }
+
+        return;
+    }
+
+    Pager* idxPager = t->indexPagers[columnName];
+    BtreeDelete(t, idxPager, L, R);
 }
 
 void Database::FlushToMeta() {
@@ -188,6 +213,12 @@ void Database::FlushToMeta() {
             }
             else ofs << c->columnName << " " << (int)c->type << " " << c->size << " " << c->offset << endl;
         }
+        ofs << table->freeList.size() << endl;
+        while(!table->freeList.empty()){
+            ofs << table->freeList.top() << " ";
+            table->freeList.pop();
+        }
+        ofs << endl;
     }
     ofs.close();
 }
@@ -217,6 +248,16 @@ void Database::LoadFromMeta(){
             }
             else t->AddColumn(new Column(cName, (Type)cTypeInt, cSize, cOffset));
         }
+
+        int freeListSize;
+        if (ifs >> freeListSize) {
+            for(int k=0; k<freeListSize; k++) {
+                int id;
+                ifs >> id;
+                t->freeList.push(id);
+            }
+        }
+
         tables[tName] = t;
     }
     ifs.close();

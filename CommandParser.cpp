@@ -90,6 +90,36 @@ ParsedCommand CommandParser::Parse(const string& line) {
             }
         }
     }
+    else if (upperToken == "DELETE") {
+        string keyword;
+        ss >> keyword; 
+        if (keyword != "from") {
+             cmd.errorMessage = "Syntax Error: Expected 'FROM' after DELETE";
+             return cmd;
+        }
+        if (!(ss >> cmd.tableName)) {
+             cmd.errorMessage = "Syntax Error: Missing table name";
+             return cmd;
+        }
+        
+        cmd.type = "DELETE";
+        cmd.isValid = true;
+
+        string whereKw;
+        if (ss >> whereKw) {
+            if (whereKw == "where") {
+                string col, l, r;
+                if (ss >> col >> l >> r) {
+                    cmd.args.push_back(col);
+                    cmd.args.push_back(l);
+                    cmd.args.push_back(r);
+                } else {
+                    cmd.isValid = false;
+                    cmd.errorMessage = "Syntax Error: WHERE clause needs <col> <min> <max>";
+                }
+            }
+        }
+    }
     else {
         cmd.errorMessage = "Unknown command: " + token;
     }

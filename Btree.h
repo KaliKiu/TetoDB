@@ -4,9 +4,11 @@
 #include <cstdint>
 #include <vector>
 
+
 using namespace std;
 
 class Pager;
+class Table;
 
 enum NodeType : uint8_t { INTERNAL, LEAF };
 
@@ -50,16 +52,17 @@ struct InsertResult{
 
 void CreateNewRoot(NodeHeader* root, Pager* pager, int32_t splitKey, int32_t splitRowId, int32_t rightChildPageNum);
 void InitializeLeafNode(LeafNode* node);
-void LeafNodeInsertNonFull(LeafNode* node, int32_t key, int32_t rowId);
-InsertResult LeafNodeInsert(LeafNode* node, Pager* pager, int32_t key, int32_t rowId);
+bool LeafNodeInsertNonFull(Table* t, LeafNode* node, int32_t key, int32_t rowId);
+InsertResult LeafNodeInsert(Table* t, LeafNode* node, Pager* pager, int32_t key, int32_t rowId);
 InsertResult InternalNodeInsert(InternalNode* node, Pager* pager, int32_t key, int32_t rowId, uint32_t rigthChildPage);
 uint16_t LeafNodeFindSlot(LeafNode* node, int32_t targetKey, int32_t targetRowId);
 uint32_t InternalNodeFindChild(InternalNode* node, int32_t targetKey, int32_t targetRowId);
 uint32_t BtreeFindLeaf(Pager* pager, uint32_t pageNum, int32_t key, int32_t rowId);
-void LeafNodeSelectRange(LeafNode* node, int L, int R, vector<int>& outRowIds);
+void LeafNodeSelectRange(Table* t, LeafNode* node, int L, int R, vector<int>& outRowIds);
 void UpdateChildParents(Pager* pager, InternalNode* parentNode, int32_t parentPageNum);
 void InsertIntoParent(Pager* pager, NodeHeader* leftChild, int32_t key, int32_t rowId, uint32_t rightChildPageNum);
-
+void BtreeDelete(Table* t, Pager* pager, int32_t L, int32_t R);
+void LeafNodeDeleteRange(Table* t, LeafNode* node, int32_t L, int32_t R);
 
 const uint32_t NODE_SIZE = 4096;
 const uint32_t HEADER_SIZE = sizeof(NodeHeader);

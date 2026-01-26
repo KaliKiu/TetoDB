@@ -1,6 +1,6 @@
 // Schema.cpp
 
-#include "Cursor.h"
+
 #include "Schema.h"
 #include "Btree.h"
 #include "Pager.h"
@@ -23,12 +23,14 @@ Row::~Row(){
 }
 
 Table::Table(const string &name, const string &meta) 
-    : tableName(name), rowCount(0), rowSize(0), rowsPerPage(0), metaName(meta), pager(new Pager(meta+"_"+name+".db"))
+    : tableName(name), rowCount(0), rowSize(ROW_HEADER_SIZE), rowsPerPage(0), metaName(meta), pager(new Pager(meta+"_"+name+".db"))
 {}
 
 Table::Table(const string &name, const string &meta, int rowCount) 
-    : tableName(name), rowCount(rowCount), rowSize(0), metaName(meta), pager(new Pager(meta+"_"+name+".db"))
-{}
+    : tableName(name), rowCount(rowCount), rowSize(ROW_HEADER_SIZE), metaName(meta), pager(new Pager(meta+"_"+name+".db"))
+{
+    while(!freeList.empty()) freeList.pop();
+}
 
 Table::~Table(){
     for(Column* c : schema) delete c;
@@ -64,33 +66,35 @@ Row* Table::ParseRow(stringstream &ss){
 void Table::SerializeRow(Row* src, void* dest){
     if(src == nullptr || dest == nullptr) return;
 
+    uint8_t isDeleted = 0;
+    memcpy(dest, &isDeleted, sizeof(uint8_t));
+    
+
     for(Column* c : schema){
-        memset(dest, 0, c->size);
-        memcpy(dest, src->value[c->columnName], c->size);
-        dest = (char*)dest + c->size;
+        memset((char*)dest+c->offset, 0, c->size);
+        memcpy((char*)dest+c->offset, src->value[c->columnName], c->size);
+        
     }
 }
 
 void Table::DeserializeRow(void* src, Row* dest){
     if(src == nullptr || dest == nullptr) return;
+    
 
     for(Column* c : schema){
-        memcpy(dest->value[c->columnName], src, c->size);
-        src = (char*)src + c->size;
+        memcpy(dest->value[c->columnName], (char*)src+c->offset, c->size);
+        
     }
 }
 
 void Table::AddColumn(Column* c){
     schema.push_back(c);
     rowSize += c->size;
-    rowsPerPage = PAGE_SIZE / rowSize;
-    //maxRows = rowsPerPage*MAX_PAGES;
+    rowsPerPage = PAGE_SIZE / rowSize; 
 }
 
 void* Table::RowSlot(int rowNum){
     int pageNum = rowNum / rowsPerPage;
-
-    //if(pageNum >= pager->numPages) return nullptr;
 
     void* page = pager->GetPage(pageNum);
 
@@ -111,15 +115,35 @@ void Table::CreateIndex(const string& columnName){
         LeafNode* rootNode = (LeafNode*)p->GetPage(0);
         InitializeLeafNode(rootNode);
         rootNode->header.isRoot = 1;
-        p->Flush(0, PAGE_SIZE);
+        //p->Flush(0, PAGE_SIZE);
     }
     
 }
 
-Cursor* Table::StartOfTable(){
-    return new Cursor(this, 0);
+bool Table::IsRowDeleted(int rowId){
+    void* slot = RowSlot(rowId);
+    if (!slot) return true;
+    uint8_t flag = *(uint8_t*)slot;
+    return (flag == 1);
 }
 
-Cursor* Table::EndOfTable(){
-    return new Cursor(this, rowCount);
+void Table::MarkRowDeleted(int rowId){
+    void* slot = RowSlot(rowId);
+    if (!slot) return;
+
+    uint8_t flag = 1; // 1 = Dead
+    memcpy(slot, &flag, sizeof(uint8_t));
+
+    freeList.push(rowId);
 }
+
+int Table::GetNextRowId() {
+    if (!freeList.empty()) {
+        int id = freeList.top();
+        freeList.pop();
+        return id;
+    }
+    return rowCount++;
+}
+
+

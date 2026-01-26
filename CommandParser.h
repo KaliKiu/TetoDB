@@ -4,7 +4,7 @@
 #include "Common.h"
 
 struct ParsedCommand {
-    string type; // CREATE, INSERT, SELECT, DROP
+    string type; // CREATE, INSERT, SELECT, DROP, DELETE
     string tableName;
     vector<string> args;
     bool isValid;

@@ -4,6 +4,7 @@
 
 
 #include "Common.h"
+#include <stack>
 
 using namespace std;
 
@@ -49,22 +50,26 @@ public:
     void AddColumn(Column* c);
     void* RowSlot(int rowNum);
 
+    bool IsRowDeleted(int rowId);
+    void MarkRowDeleted(int rowId);
+    int GetNextRowId();
+
     void CreateIndex(const string& columnName);
 
-    Cursor* StartOfTable();
-    Cursor* EndOfTable();
 
 public:
     string metaName;
     string tableName;
     vector<Column*> schema;
+    stack<int> freeList;
     map<string, Pager*> indexPagers;
     Pager* pager;
 
     int rowCount;
     int rowSize;
     int rowsPerPage;
-    //int maxRows;
+    
+    static const int ROW_HEADER_SIZE = 1;
 
 };
 
