@@ -87,16 +87,35 @@ void ProcessDotCommand(const string &line){
         Table* t = DB_INSTANCE->GetTable(tableName);
 
         if(t == nullptr){
-            cout << "Name does not exist" << endl;
+            cout << "Error: Table '" << tableName << "' does not exist." << endl;
             return;
         }
 
+        // --- UPDATED OUTPUT FORMAT ---
+        cout << left << setw(15) << "COLUMN" 
+             << left << setw(10) << "TYPE" 
+             << left << setw(6) << "SIZE" 
+             << left << setw(8) << "OFFSET" 
+             << left << setw(10) << "INDEX" << endl;
+             
+        cout << string(50, '-') << endl;
+
         for(Column* c : t->schema){
-            cout<<c->columnName<<' '<<c->type<<' '<<c->size<<' '<<c->offset<<endl;
+            string indexStatus = "-";
+            
+            // Check if this INT column has an active B-Tree pager
+            if(c->type == INT){
+                if(t->indexPagers.count(c->columnName)) indexStatus = "YES";
+                else indexStatus = "NO";
+            }
+
+            cout << left << setw(15) << c->columnName 
+                 << left << setw(10) << GetTypeName(c->type) 
+                 << left << setw(6) << c->size 
+                 << left << setw(8) << c->offset 
+                 << left << setw(10) << indexStatus << endl;
         }
-
         return;
-
     }
 } 
 
