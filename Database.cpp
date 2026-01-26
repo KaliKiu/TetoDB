@@ -88,7 +88,7 @@ Result Database::Insert(const string& name, stringstream& ss){
             LeafNode* leaf = (LeafNode*)idxPager->GetPage(leafPageNum);
 
             
-            InsertResult res = LeafNodeInsert(leaf, idxPager, value, newRowId);
+            InsertResult res = LeafNodeInsert(t, leaf, idxPager, value, newRowId);
             if(res.didSplit){
                 if(leaf->header.isRoot) CreateNewRoot((NodeHeader*)leaf, idxPager, res.splitKey, res.splitRowId, res.rightChildPageNum);
                 else{
@@ -156,7 +156,7 @@ void Database::SelectWithRange(Table* t, const string& columnName, int L, int R,
     
     while(leafPageNum != 0 || (firstPage && leafPageNum == 0)){
         LeafNode* leaf = (LeafNode*)idxPager->GetPage(leafPageNum);
-        LeafNodeSelectRange(leaf, L, R, selectedRowIds);
+        LeafNodeSelectRange(t, leaf, L, R, selectedRowIds);
 
         if(leaf->header.numCells > 0){
             int lastKey = leaf->cells[leaf->header.numCells - 1].key;
@@ -169,6 +169,7 @@ void Database::SelectWithRange(Table* t, const string& columnName, int L, int R,
 
     sort(selectedRowIds.begin(), selectedRowIds.end());
     for(int rowId : selectedRowIds){
+        if(t->IsRowDeleted(rowId)) continue;
         Row* r = new Row(t->schema);
         void* src = t->RowSlot(rowId);
         t->DeserializeRow(src, r);
