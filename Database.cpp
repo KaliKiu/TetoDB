@@ -16,7 +16,6 @@ Database::Database(const string& name)
 }
 
 Database::~Database(){
-    FlushToMeta();
     for(auto const& [name, table] : tables) delete table;
     tables.clear();
     running = false;
@@ -123,10 +122,14 @@ void Database::SelectAll(Table* t, vector<Row*>& res){
     }
 }
 
-void Database::DeleteAll(Table* t){
+int Database::DeleteAll(Table* t){
+    int deletedCount = 0;
     for(uint32_t i = 0;i<t->rowCount; i++){
+        if(t->IsRowDeleted(i)) continue;
         t->MarkRowDeleted(i);
+        deletedCount++;
     }
+    return deletedCount;
 }
 
 void Database::SelectWithRange(Table* t, const string& columnName, int L, int R, vector<Row*>& res){
@@ -178,8 +181,9 @@ void Database::SelectWithRange(Table* t, const string& columnName, int L, int R,
 
 }
 
-void Database::DeleteWithRange(Table* t, const string& columnName, int L, int R){
+int Database::DeleteWithRange(Table* t, const string& columnName, int L, int R){
     if(t->indexPagers.count(columnName) == 0){
+        int deletedCount = 0;
         for(uint32_t i = 0; i<t->rowCount; i++){
             if(t->IsRowDeleted(i)) continue;
             
@@ -188,15 +192,18 @@ void Database::DeleteWithRange(Table* t, const string& columnName, int L, int R)
             t->DeserializeRow(slot, r);
             
             int val = *(int*)r->value[columnName];
-            if(L<=val&&val<=R) t->MarkRowDeleted(i);
+            if(L<=val&&val<=R){
+                t->MarkRowDeleted(i);
+                deletedCount++;
+            }
             delete r;
         }
 
-        return;
+        return deletedCount;
     }
 
     Pager* idxPager = t->indexPagers[columnName];
-    BtreeDelete(t, idxPager, L, R);
+    return BtreeDelete(t, idxPager, L, R);
 }
 
 void Database::FlushToMeta() {
@@ -261,4 +268,16 @@ void Database::LoadFromMeta(){
         tables[tName] = t;
     }
     ifs.close();
+}
+
+void Database::Commit(){
+    FlushToMeta();
+
+    for(auto const& [name, table] : tables){
+        if(table->pager) table->pager->FlushAll();
+
+        for(auto const& [col, idxPager] : table->indexPagers){
+            if(idxPager) idxPager->FlushAll();
+        }
+    }
 }

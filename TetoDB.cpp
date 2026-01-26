@@ -50,7 +50,7 @@ int main(int argc, char* argv[]){
 
     }
 
-    cout << "Saving and exiting..." << endl;
+    cout << "Exiting..." << endl;
     delete DB_INSTANCE;
 
     return 0;

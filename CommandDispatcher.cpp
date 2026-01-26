@@ -65,8 +65,13 @@ void ProcessDotCommand(string &line){
         DB_INSTANCE->running = false;
         return;
     }
+    if(cmd == ".commit") {
+        DB_INSTANCE->Commit();
+        cout << "Changes committed to disk." << endl;
+        return;
+    }
     if(cmd == ".help"){
-        cout << "Read the docs, i aint helping" << endl;
+        cout << "Read the readme, i aint helping lol" << endl;
         return;
     }
     if(cmd == ".tables"){
@@ -160,18 +165,18 @@ void ExecuteCommand(string &line){
         Table* t = DB_INSTANCE->GetTable(cmd.tableName);
         if (!t) { cout << "Error: Table '" << cmd.tableName << "' not found." << endl; return; }
 
-        
+        int deletedCount = 0;
         if (cmd.args.empty()) {
-            DB_INSTANCE->DeleteAll(t);
+            deletedCount = DB_INSTANCE->DeleteAll(t);
         } else {
             // Args are [col, min, max]
             string col = cmd.args[0];
             int l = stoi(cmd.args[1]);
             int r = stoi(cmd.args[2]);
-            DB_INSTANCE->DeleteWithRange(t, col, l, r);
+            deletedCount = DB_INSTANCE->DeleteWithRange(t, col, l, r);
         }
 
-        cout<<"deleted ok"<<endl;
+        cout<<"Deleted " << deletedCount << " rows."<<endl;
     }
 
 }

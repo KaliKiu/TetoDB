@@ -19,6 +19,7 @@ public:
 
     void* GetPage(int pageNum);
     void Flush(int pageNum, size_t size);
+    void FlushAll();
     int GetUnusedPageNum(); 
 public:
     vector<void*> pages;

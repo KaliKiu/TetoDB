@@ -42,10 +42,7 @@ Pager::Pager(const std::string& filename){
 }
 
 Pager::~Pager(){
-    for(int i = 0;i<numPages; i++){
-        if(pages[i]) Flush(i, PAGE_SIZE);
-        free(pages[i]);
-    }
+    for(int i = 0;i<numPages; i++) free(pages[i]);
     close(fileDescriptor);
 }
 
@@ -95,6 +92,12 @@ void Pager::Flush(int pageNum, size_t size){
 
     fileLength = max(fileLength, (size_t)(pageNum + 1) * PAGE_SIZE);
     _commit(fileDescriptor);
+}
+
+void Pager::FlushAll(){
+    for(int i = 0; i < numPages; i++){
+        if(pages[i]) Flush(i, PAGE_SIZE);
+    }
 }
 
 int Pager::GetUnusedPageNum(){
