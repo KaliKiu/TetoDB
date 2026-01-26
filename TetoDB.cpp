@@ -4,6 +4,7 @@
 #include <cstring>
 #include <vector>
 #include <sstream>
+#include <chrono>
 
 
 #include "CommandDispatcher.h"
@@ -24,7 +25,8 @@ int main(int argc, char* argv[]){
 
     if(argc>=3){
         string txtFileName = argv[2];
-        ifstream txtFile(txtFileName);
+        ifstream txtFile(txtFileName + ".txt");
+        
 
         if(!txtFile.is_open()){
             cout<<"ERROR: couldnt open commands file"<<endl;
@@ -32,7 +34,12 @@ int main(int argc, char* argv[]){
         else{
             string line;
             while(getline(txtFile, line) && DB_INSTANCE->running){
+                auto start = chrono::high_resolution_clock::now();
                 ExecuteCommand(line);
+                auto end = chrono::high_resolution_clock::now();
+                
+                chrono::duration<double, milli> elapsed = end - start;
+                if(!line.empty()) cout << "(" << fixed << setprecision(2) << elapsed.count() << " ms)" << endl;
             }
             
         }
@@ -46,7 +53,12 @@ int main(int argc, char* argv[]){
         string line;
         getline(cin, line);
 
+        auto start = chrono::high_resolution_clock::now();
         ExecuteCommand(line);
+        auto end = chrono::high_resolution_clock::now();
+        
+        chrono::duration<double, milli> elapsed = end - start;
+        if(!line.empty()) cout << "(" << fixed << setprecision(2) << elapsed.count() << " ms)" << endl;
 
     }
 

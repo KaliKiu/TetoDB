@@ -64,9 +64,12 @@ void InsertIntoParent(Pager* pager, NodeHeader* leftChild, int32_t key, int32_t 
 int BtreeDelete(Table* t, Pager* pager, int32_t L, int32_t R);
 int LeafNodeDeleteRange(Table* t, LeafNode* node, int32_t L, int32_t R);
 
-const uint32_t NODE_SIZE = 4096;
+//const uint32_t NODE_SIZE = 4096;
+const uint32_t LEAF_NODE_SIZE = 4096;
+const uint32_t INTERNAL_NODE_SIZE = 4096;
 const uint32_t HEADER_SIZE = sizeof(NodeHeader);
-const uint32_t CELL_SIZE = sizeof(LeafCell);
+const uint32_t LEAF_CELL_SIZE = sizeof(LeafCell);
+const uint32_t INTERNAL_CELL_SIZE = sizeof(InternalCell);
 
 const uint32_t LEAF_NODE_MAX_CELLS = 3;//(NODE_SIZE - HEADER_SIZE) / CELL_SIZE;
 const uint32_t INTERNAL_NODE_MAX_CELLS = 3;// (NODE_SIZE - sizeof(InternalNode)) / sizeof(InternalCell);

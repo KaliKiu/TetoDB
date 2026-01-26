@@ -9,10 +9,6 @@
 using namespace std;
 
 
-
-#define PAGE_SIZE 4096
-
-class Cursor;
 class Pager;
 
 

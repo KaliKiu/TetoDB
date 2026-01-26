@@ -13,7 +13,7 @@ void CreateNewRoot(NodeHeader* root, Pager* pager, int32_t splitKey, int32_t spl
     int leftChildPageNum = pager->GetUnusedPageNum();
     NodeHeader* leftChild = (NodeHeader*)pager->GetPage(leftChildPageNum);
 
-    memcpy(leftChild, root, NODE_SIZE);
+    memcpy(leftChild, root, INTERNAL_NODE_SIZE);
     leftChild->isRoot = 0;
     leftChild->parent = 0;
 
@@ -34,8 +34,6 @@ void CreateNewRoot(NodeHeader* root, Pager* pager, int32_t splitKey, int32_t spl
 
     if(leftChild->type == INTERNAL) UpdateChildParents(pager, (InternalNode*)leftChild, leftChildPageNum);
     if(rightChild->type == INTERNAL) UpdateChildParents(pager, (InternalNode*)rightChild, rightChildPageNum);
-
-    cout<<"Root grew! Old root moved to Page "<<leftChildPageNum<<endl;
 }
 
 void InitializeLeafNode(LeafNode* node){
@@ -47,7 +45,7 @@ void InitializeLeafNode(LeafNode* node){
 
     node->nextLeaf = 0;
 
-    memset(node->cells, 0, NODE_SIZE - HEADER_SIZE);
+    memset(node->cells, 0, LEAF_NODE_SIZE - HEADER_SIZE);
 }
 
 uint16_t LeafNodeFindSlot(LeafNode* node, int32_t targetKey, int32_t targetRowId){
@@ -140,7 +138,7 @@ bool LeafNodeInsertNonFull(Table* t, LeafNode* node, int32_t key, int32_t rowId)
         if(cellsToMove > 0){
             void* src = &node->cells[slot];
             void* dest = &node->cells[slot+1];
-            memmove(dest, src, cellsToMove*CELL_SIZE);
+            memmove(dest, src, cellsToMove*LEAF_CELL_SIZE);
         }
         node->header.numCells++;
     }
@@ -170,7 +168,7 @@ InsertResult LeafNodeInsert(Table* t, LeafNode* node, Pager* pager, int32_t key,
 
     void* src = &node->cells[splitIdx];
     void* dest = &rightNode->cells[0];
-    memcpy(dest, src, cellsMoved*CELL_SIZE);
+    memcpy(dest, src, cellsMoved*LEAF_CELL_SIZE);
 
     node->header.numCells = splitIdx;
     rightNode->header.numCells = cellsMoved;
@@ -266,7 +264,7 @@ void LeafNodeSelectRange(Table* t, LeafNode* node, int L, int R, vector<int>& ou
         int32_t key = node->cells[q].key;
         if(L<=key && key<=R) outRowIds.push_back(rowId);
 
-        if(p!=q) memcpy(&node->cells[p], &node->cells[q], CELL_SIZE);
+        if(p!=q) memcpy(&node->cells[p], &node->cells[q], LEAF_CELL_SIZE);
         p++;
     }
 
@@ -288,7 +286,7 @@ int LeafNodeDeleteRange(Table* t, LeafNode* node, int32_t L, int32_t R){
             continue;
         }
 
-        if(p!=q) memcpy(&node->cells[p], &node->cells[q], CELL_SIZE);
+        if(p!=q) memcpy(&node->cells[p], &node->cells[q], LEAF_CELL_SIZE);
         p++;
     }
     
