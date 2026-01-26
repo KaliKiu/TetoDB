@@ -42,6 +42,7 @@ Result Database::CreateTable(const string& tableName, stringstream& ss){
         if(type == "int"){
             t->AddColumn(new Column(name, INT, 4, offset));
             if(size) t->CreateIndex(name);
+            size = 4;
         }
 
         else t->AddColumn(new Column(name, STRING, size, offset));
@@ -71,6 +72,7 @@ Result Database::Insert(const string& name, stringstream& ss){
     if(!t) return Result::TABLE_NOT_FOUND;
 
     Row* r = t->ParseRow(ss);
+
     if(!r) return Result::INVALID_SCHEMA;
     
 
@@ -113,6 +115,7 @@ void Database::SelectAll(Table* t, vector<Row*>& res){
     res.clear();
     
     for(uint32_t i = 0;i<t->rowCount; i++){
+        if(t->IsRowDeleted(i)) continue;
         Row* r = new Row(t->schema);
         void* slot = t->RowSlot(i);
         t->DeserializeRow(slot, r);
@@ -133,6 +136,7 @@ void Database::SelectWithRange(Table* t, const string& columnName, int L, int R,
     if(t->indexPagers.count(columnName) == 0){
         
         for(uint32_t i = 0; i<t->rowCount; i++){
+            if(t->IsRowDeleted(i)) continue;
             Row* r = new Row(t->schema);
             void* slot = t->RowSlot(i);
             t->DeserializeRow(slot, r);

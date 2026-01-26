@@ -5,7 +5,6 @@
 #endif
 
 #include "Pager.h"
-#include "Schema.h"
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/stat.h>
@@ -14,11 +13,11 @@
 
 using namespace std;
 
-Pager::Pager(const string& filename){
+Pager::Pager(const std::string& filename){
     fileDescriptor = open(filename.c_str(), O_RDWR | O_CREAT | O_BINARY, S_IWUSR | S_IRUSR);
 
     if(fileDescriptor == -1){
-        cerr << "Error: Unable to open file " << filename << std::endl;
+        std::cerr << "Error: Unable to open file " << filename << std::endl;
         exit(1);
     }
 
@@ -74,7 +73,6 @@ void* Pager::GetPage(int pageNum){
             exit(1);
         }
     }
-    
 
     pages[pageNum] = page;
     return pages[pageNum];
@@ -96,7 +94,6 @@ void Pager::Flush(int pageNum, size_t size){
     }
 
     fileLength = max(fileLength, (size_t)(pageNum + 1) * PAGE_SIZE);
-
     _commit(fileDescriptor);
 }
 

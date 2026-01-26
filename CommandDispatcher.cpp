@@ -114,8 +114,25 @@ void ExecuteCommand(string &line){
         else cout << "Error: Could not create table." << endl;
     }
     else if (cmd.type == "INSERT") {
+        // FIX: Fetch table FIRST to check column types
+        Table* t = DB_INSTANCE->GetTable(cmd.tableName);
+        if(!t) { 
+            cout << "Error: Table '" << cmd.tableName << "' not found." << endl; 
+            return; 
+        }
+
         stringstream ss;
-        for(auto& s : cmd.args) ss << quoted(s) << " "; // preserve quotes for strings
+        for(size_t i = 0; i < cmd.args.size(); i++){
+             // Check if we are within schema bounds
+             if(i < t->schema.size()) {
+                 // ONLY quote if it is a STRING. Integers must be raw.
+                 if(t->schema[i]->type == INT) {
+                     ss << cmd.args[i] << " ";
+                 } else {
+                     ss << quoted(cmd.args[i]) << " ";
+                 }
+             }
+        }
         
         Result res = DB_INSTANCE->Insert(cmd.tableName, ss);
         if (res == Result::OK) cout << "Query OK: 1 row inserted." << endl;
