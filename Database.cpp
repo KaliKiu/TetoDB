@@ -144,7 +144,11 @@ void Database::SelectWithRange(Table* t, const string& columnName, int32_t L, in
             void* slot = t->RowSlot(i);
             t->DeserializeRow(slot, r);
             int32_t val = *(int32_t*)r->value[columnName];
-            if(L<=val&&val<=R) res.push_back(r);
+            if(L<=val&&val<=R){
+                Row* resultRow = new Row(t->schema);
+                t->DeserializeRow(slot, resultRow);
+                res.push_back(resultRow);
+            }
             
         }
         delete r;
