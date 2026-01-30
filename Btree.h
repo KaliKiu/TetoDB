@@ -6,7 +6,6 @@
 
 using namespace std;
 
-// Forward Declarations: Eliminates dependency loops
 class Pager;
 class Table;
 
@@ -20,57 +19,97 @@ struct NodeHeader{
     int32_t parent;
 };
 
+template<typename KeyType>
 struct LeafCell{
-    int32_t key;
+    KeyType key;
     uint32_t rowId;
 };
 
+template<typename KeyType>
 struct InternalCell{
-    int32_t key;
+    KeyType key;
     uint32_t rowId;
     uint32_t childPage;
 };
 
+template<typename KeyType>
 struct LeafNode{
     NodeHeader header;
     uint32_t nextLeaf;
-    LeafCell cells[0];
+    LeafCell<KeyType> cells[0];
 };
 
+template<typename KeyType>
 struct InternalNode{
     NodeHeader header;
     uint32_t rightChild;
-    InternalCell cells[0];
+    InternalCell<KeyType> cells[0];
 };
 
+template<typename KeyType>
 struct InsertResult{
     bool success;
     bool didSplit;
-    int32_t splitKey;
+    KeyType splitKey;
     uint32_t splitRowId;
     uint32_t rightChildPageNum;
 };
 
-void CreateNewRoot(NodeHeader* root, Pager* pager, int32_t splitKey, uint32_t splitRowId, uint32_t rightChildPageNum);
-void InitializeLeafNode(LeafNode* node);
-bool LeafNodeInsertNonFull(Table* t, LeafNode* node, int32_t key, uint32_t rowId);
-InsertResult LeafNodeInsert(Table* t, LeafNode* node, Pager* pager, int32_t key, uint32_t rowId);
-InsertResult InternalNodeInsert(InternalNode* node, Pager* pager, int32_t key, uint32_t rowId, uint32_t rigthChildPage);
-uint16_t LeafNodeFindSlot(LeafNode* node, int32_t targetKey, uint32_t targetRowId);
-uint32_t InternalNodeFindChild(InternalNode* node, int32_t targetKey, uint32_t targetRowId);
-uint32_t BtreeFindLeaf(Pager* pager, uint32_t pageNum, int32_t key, uint32_t rowId);
-void LeafNodeSelectRange(Table* t, LeafNode* node, int32_t L, int32_t R, vector<uint32_t>& outRowIds);
-void UpdateChildParents(Pager* pager, InternalNode* parentNode, uint32_t parentPageNum);
-void InsertIntoParent(Pager* pager, NodeHeader* leftChild, int32_t key, uint32_t rowId, uint32_t rightChildPageNum);
-uint32_t BtreeDelete(Table* t, Pager* pager, int32_t L, int32_t R);
-uint16_t LeafNodeDeleteRange(Table* t, LeafNode* node, int32_t L, int32_t R);
 
-//const uint32_t NODE_SIZE = 4096;
-const uint32_t LEAF_NODE_SIZE = 4096;
-const uint32_t INTERNAL_NODE_SIZE = 4096;
-const uint32_t HEADER_SIZE = sizeof(NodeHeader);
-const uint32_t LEAF_CELL_SIZE = sizeof(LeafCell);
-const uint32_t INTERNAL_CELL_SIZE = sizeof(InternalCell);
+template<typename KeyType>
+class Btree{
 
-const uint32_t LEAF_NODE_MAX_CELLS = (LEAF_NODE_SIZE - sizeof(LeafNode)) / LEAF_CELL_SIZE;
-const uint32_t INTERNAL_NODE_MAX_CELLS = (INTERNAL_NODE_SIZE - sizeof(InternalNode)) / INTERNAL_CELL_SIZE;
+public:
+    Btree(Pager* p, Table* t);
+    ~Btree();
+
+    void CreateIndex(uint32_t rootPageNum);
+
+    InsertResult<KeyType> Insert(KeyType key, uint32_t rowId);
+    void SelectRange(KeyType L, KeyType R, vector<uint32_t>& outRowIds);
+    uint32_t DeleteRange(KeyType L, KeyType R);
+
+
+    uint32_t FindLeaf(uint32_t pageNum, KeyType key, uint32_t rowId);
+
+private:
+    void CreateNewRoot(NodeHeader* root, KeyType splitKey, uint32_t splitRowId, uint32_t rightChildPageNum);
+    void InitializeLeafNode(LeafNode<KeyType>* node);
+
+    uint32_t InternalNodeFindChild(InternalNode<KeyType>* node, KeyType targetKey, uint32_t targetRowId);
+    uint16_t LeafNodeFindSlot(LeafNode<KeyType>* node, KeyType targetKey, uint32_t targetRowId);
+
+    InsertResult<KeyType> InternalNodeInsert(InternalNode<KeyType>* node, KeyType key, uint32_t rowId, uint32_t rigthChildPage);
+    InsertResult<KeyType> LeafNodeInsert(LeafNode<KeyType>* node, KeyType key, uint32_t rowId);
+
+    bool LeafNodeInsertNonFull(LeafNode<KeyType>* node, KeyType key, uint32_t rowId);
+    
+
+    void InsertIntoParent(NodeHeader* leftChild, KeyType key, uint32_t rowId, uint32_t rightChildPageNum);
+    void UpdateChildParents(InternalNode<KeyType>* parentNode, uint32_t parentPageNum);
+
+    void LeafNodeSelectRange(LeafNode<KeyType>* node, KeyType L, KeyType R, vector<uint32_t>& outRowIds);
+    uint16_t LeafNodeDeleteRange(LeafNode<KeyType>* node, KeyType L, KeyType R);
+    
+
+
+
+public:
+    Pager* pager;
+    Table* table;
+    uint32_t rootPageNum;
+
+
+public:
+    inline static const uint32_t LEAF_NODE_SIZE = 4096;
+    inline static const uint32_t INTERNAL_NODE_SIZE = 4096;
+    inline static const uint32_t HEADER_SIZE = sizeof(NodeHeader);
+    inline static const uint32_t LEAF_CELL_SIZE = sizeof(LeafCell<KeyType>);
+    inline static const uint32_t INTERNAL_CELL_SIZE = sizeof(InternalCell<KeyType>);
+
+    inline static const uint32_t LEAF_NODE_MAX_CELLS = (LEAF_NODE_SIZE - sizeof(LeafNode<KeyType>)) / LEAF_CELL_SIZE;
+    inline static const uint32_t INTERNAL_NODE_MAX_CELLS = (INTERNAL_NODE_SIZE - sizeof(InternalNode<KeyType>)) / INTERNAL_CELL_SIZE;
+};
+
+
+
