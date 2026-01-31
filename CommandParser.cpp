@@ -7,6 +7,9 @@
 #include <algorithm>
 #include <iomanip> // quoted
 
+
+#define UPPER_CASE(x) std::transform(x.begin(), x.end(), x.begin(), ::toupper);
+
 ParsedCommand CommandParser::Parse(const string& line) {
     ParsedCommand cmd;
     cmd.isValid = false;
@@ -18,11 +21,12 @@ ParsedCommand CommandParser::Parse(const string& line) {
     
     // Normalize to upper case for checking, but keep original for values
     std::string upperToken = token;
-    std::transform(upperToken.begin(), upperToken.end(), upperToken.begin(), ::toupper);
+    UPPER_CASE(upperToken);
 
     if (upperToken == "CREATE") {
         std::string keyword;
         ss >> keyword; 
+        UPPER_CASE(keyword);
         if (keyword != "TABLE") {
             cmd.errorMessage = "Syntax Error: Expected 'TABLE' after CREATE";
             return cmd;
@@ -45,6 +49,8 @@ ParsedCommand CommandParser::Parse(const string& line) {
     else if (upperToken == "INSERT") {
         std::string keyword;
         ss >> keyword; 
+        UPPER_CASE(keyword);
+        
         if (keyword != "INTO") {
              cmd.errorMessage = "Syntax Error: Expected 'INTO' after INSERT";
              return cmd;
@@ -66,6 +72,8 @@ ParsedCommand CommandParser::Parse(const string& line) {
     else if (upperToken == "SELECT") {
         std::string keyword;
         ss >> keyword; 
+        UPPER_CASE(keyword);
+
         if (keyword != "FROM") {
              cmd.errorMessage = "Syntax Error: Expected 'FROM' after SELECT";
              return cmd;
@@ -80,6 +88,7 @@ ParsedCommand CommandParser::Parse(const string& line) {
 
         std::string whereKw;
         if (ss >> whereKw) {
+            UPPER_CASE(whereKw);
             if (whereKw == "WHERE") {
                 std::string col, l, r;
                 if (ss >> col >> l >> r) {
@@ -96,6 +105,8 @@ ParsedCommand CommandParser::Parse(const string& line) {
     else if (upperToken == "DELETE") {
         std::string keyword;
         ss >> keyword; 
+        UPPER_CASE(keyword);
+
         if (keyword != "FROM") {
              cmd.errorMessage = "Syntax Error: Expected 'FROM' after DELETE";
              return cmd;
@@ -110,6 +121,7 @@ ParsedCommand CommandParser::Parse(const string& line) {
 
         std::string whereKw;
         if (ss >> whereKw) {
+            UPPER_CASE(whereKw);
             if (whereKw == "WHERE") {
                 string col, l, r;
                 if (ss >> col >> l >> r) {

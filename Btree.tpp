@@ -51,7 +51,7 @@ void Btree<T>::FlushAll(){
 template<typename T>
 void Btree<T>::InsertLogic(T key, uint32_t rowId){
     uint32_t leafPageNum = FindLeaf(rootPageNum, key, rowId);
-    LeafNode<T>* leaf = pager->GetPage(leafPageNum, 1);
+    LeafNode<T>* leaf = (LeafNode<T>*) pager->GetPage(leafPageNum, 1);
 
     InsertResult<T> res = LeafNodeInsert(leaf, key, rowId);
     if(res.didSplit){

@@ -199,13 +199,12 @@ uint32_t Table::DeleteRange(const string& colName, void* L, void* R){
     // if has index
     if(colIdx.find(colName) != colIdx.end()){
         BtreeIndex* tree = colIdx[colName];
-        tree->DeleteRange(L, R);
-        return;
+        return tree->DeleteRange(L, R);;
     }
 
     if(colPtr.find(colName) == colPtr.end()){
         cout << "Error: Column " << colName << " not found." << endl;
-        return;
+        return 0;
     }
 
     Column* col = colPtr[colName];
@@ -213,6 +212,8 @@ uint32_t Table::DeleteRange(const string& colName, void* L, void* R){
         case INT: return DeleteScan<int32_t>(col, L, R);
         // other cases
     }
+
+    return 0;
 }
 
 template <typename T>
