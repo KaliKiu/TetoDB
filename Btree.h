@@ -55,9 +55,15 @@ struct InsertResult{
     uint32_t rightChildPageNum;
 };
 
+//generic interface for Btree<T>
+class BTreeIndex{
+public:
+    virtual ~BTreeIndex() = default;
+};
+
 
 template<typename T>
-class Btree{
+class Btree : public BTreeIndex{
 
 public:
     Btree(Pager* p, Table* t);
