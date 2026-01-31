@@ -26,8 +26,8 @@ public:
     Result Insert(const string& name, stringstream& ss);
     void SelectAll(Table* t, vector<Row*> &res);
     uint32_t DeleteAll(Table* t);
-    void SelectWithRange(Table* t, const string& columnName, int32_t L, int32_t R, vector<Row*>& res);
-    uint32_t DeleteWithRange(Table* t, const string& columnName, int32_t L, int32_t R);
+    void SelectWithRange(Table* t, const string& columnName, void* L, void* R, vector<Row*>& res);
+    uint32_t DeleteWithRange(Table* t, const string& columnName, void* L, void* R);
     void Commit();
     void LoadFromMeta();
     void FlushToMeta();

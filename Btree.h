@@ -56,32 +56,47 @@ struct InsertResult{
 };
 
 //generic interface for Btree<T>
-class BTreeIndex{
+class BtreeIndex{
 public:
-    virtual ~BTreeIndex() = default;
+    virtual ~BtreeIndex() = default;
+
+    virtual void CreateIndex() = 0;
+
+    virtual void Insert(void* key, uint32_t rowId) = 0;
+    virtual void SelectRange(void* L, void* R, vector<uint32_t>& outRowIds) = 0;
+    virtual uint32_t DeleteRange(void* L, void* R) = 0;
+
+    virtual void FlushAll() = 0;
+
 };
 
 
 template<typename T>
-class Btree : public BTreeIndex{
+class Btree : public BtreeIndex{
 
 public:
     Btree(Pager* p, Table* t);
     ~Btree();
 
-    void CreateIndex();
+    void CreateIndex() override;
 
-    InsertResult<T> Insert(T key, uint32_t rowId);
-    void SelectRange(T L, T R, vector<uint32_t>& outRowIds);
-    uint32_t DeleteRange(T L, T R);
+    void Insert(void* key, uint32_t rowId) override;
+    void SelectRange(void* L, void* R, vector<uint32_t>& outRowIds) override;
+    uint32_t DeleteRange(void* L, void* R) override;
 
+    void FlushAll() override;
 
-    uint32_t FindLeaf(uint32_t pageNum, T key, uint32_t rowId);
+    
 
 private:
+    void InsertLogic(T key, uint32_t rowId);
+    void SelectRangeLogic(T L, T R, vector<uint32_t>& outRowIds);
+    uint32_t DeleteRangeLogic(T L, T R);
+
     void CreateNewRoot(NodeHeader* root, T splitKey, uint32_t splitRowId, uint32_t rightChildPageNum);
     void InitializeLeafNode(LeafNode<T>* node);
 
+    uint32_t FindLeaf(uint32_t pageNum, T key, uint32_t rowId);
     uint32_t InternalNodeFindChild(InternalNode<T>* node, T targetKey, uint32_t targetRowId);
     uint16_t LeafNodeFindSlot(LeafNode<T>* node, T targetKey, uint32_t targetRowId);
 

@@ -16,7 +16,7 @@ Btree<T>::Btree(Pager* p, Table* t)
 
 template<typename T>
 Btree<T>::~Btree(){
-
+    delete pager;
 }
 
 template<typename T>
@@ -27,7 +27,29 @@ void Btree<T>::CreateIndex(){
 }
 
 template<typename T>
-InsertResult<T> Btree<T>::Insert(T key, uint32_t rowId){
+void Btree<T>::Insert(void* key, uint32_t rowId){
+    InsertLogic(*(T*) key, rowId);
+}
+
+template<typename T>
+void Btree<T>::SelectRange(void* L, void* R, vector<uint32_t>& outRowIds){
+    SelectRangeLogic(*(T*) L, *(T*) R, outRowIds);
+}
+
+template<typename T>
+uint32_t Btree<T>::DeleteRange(void* L, void* R){
+    return DeleteRangeLogic(*(T*) L, *(T*) R);
+}
+
+template<typename T>
+void Btree<T>::FlushAll(){
+    pager->FlushAll();
+}
+
+
+
+template<typename T>
+void Btree<T>::InsertLogic(T key, uint32_t rowId){
     uint32_t leafPageNum = FindLeaf(rootPageNum, key, rowId);
     LeafNode<T>* leaf = pager->GetPage(leafPageNum, 1);
 
@@ -36,17 +58,16 @@ InsertResult<T> Btree<T>::Insert(T key, uint32_t rowId){
         if(leaf->header.isRoot) CreateNewRoot((NodeHeader*)leaf, res.splitKey, res.splitRowId, res.rightChildPageNum);
         else InsertIntoParent((NodeHeader*)leaf, res.splitKey, res.splitRowId, res.rightChildPageNum);
     } 
-    return res;
 }
 
 template<typename T>
-void Btree<T>::SelectRange(T L, T R, vector<uint32_t>& outRowIds){
+void Btree<T>::SelectRangeLogic(T L, T R, vector<uint32_t>& outRowIds){
     uint32_t leafPageNum = FindLeaf(rootPageNum, L, 0);
 
     bool firstPage = 1;
     
     while(leafPageNum != 0 || (firstPage && leafPageNum == 0)){
-        LeafNode<T>* leaf = (LeafNode<T>*)pager->GetPage(leafPageNum, 1); // may change to not mark dirty later
+        LeafNode<T>* leaf = (LeafNode<T>*)pager->GetPage(leafPageNum, 0);
         LeafNodeSelectRange(leaf, L, R, outRowIds);
 
         if(leaf->header.numCells > 0){
@@ -59,13 +80,13 @@ void Btree<T>::SelectRange(T L, T R, vector<uint32_t>& outRowIds){
 }
 
 template<typename T>
-uint32_t Btree<T>::DeleteRange(T L, T R){
+uint32_t Btree<T>::DeleteRangeLogic(T L, T R){
     uint32_t leafPageNum = FindLeaf(rootPageNum,L,0);
     uint32_t deletedCount = 0;
     bool firstPage = 1;
     
     while(leafPageNum != 0 || (firstPage && leafPageNum == 0)){
-        LeafNode<T>* leaf = (LeafNode<T>*)pager->GetPage(leafPageNum, 1); // mat change to not mark dirty later
+        LeafNode<T>* leaf = (LeafNode<T>*)pager->GetPage(leafPageNum, 0); 
         deletedCount += LeafNodeDeleteRange(leaf, L, R);
 
         if(leaf->header.numCells > 0){
@@ -74,7 +95,6 @@ uint32_t Btree<T>::DeleteRange(T L, T R){
         }
         firstPage = 0;
         leafPageNum = leaf->nextLeaf;
-        //pager->Flush(leafPageNum, PAGE_SIZE);
     }
 
     return deletedCount;
@@ -94,9 +114,6 @@ uint32_t Btree<T>::FindLeaf(uint32_t pageNum, T key, uint32_t rowId){
     
     return FindLeaf(childPageNum, key, rowId); 
 }
-
-
-
 
 template<typename T>
 void Btree<T>::InitializeLeafNode(LeafNode<T>* node){
@@ -340,42 +357,31 @@ InsertResult<T> Btree<T>:: InternalNodeInsert(InternalNode<T>* node, T key, uint
 
 template<typename T>
 void Btree<T>::LeafNodeSelectRange(LeafNode<T>* node, T L, T R, vector<uint32_t>& outRowIds){
-    uint16_t p = 0;
-    for(uint16_t q = 0;q<node->header.numCells;q++){
-        uint32_t rowId = node->cells[q].rowId;
+    for(uint16_t i = 0;i<node->header.numCells;i++){
+        uint32_t rowId = node->cells[i].rowId;
         if(table->IsRowDeleted(rowId)) continue;
 
-        T key = node->cells[q].key;
+        T key = node->cells[i].key;
         if(L<=key && key<=R) outRowIds.push_back(rowId);
-
-        if(p!=q) memcpy(&node->cells[p], &node->cells[q], LEAF_CELL_SIZE);
-        p++;
     }
-
-    node->header.numCells = p;
-
 }
 
 template<typename T>
 uint16_t Btree<T>::LeafNodeDeleteRange(LeafNode<T>* node, T L, T R){
-    uint16_t p = 0;
-    uint16_t deletedCount = 0;
-    for(uint16_t q = 0;q<node->header.numCells;q++){
-        uint32_t rowId = node->cells[q].rowId;
-        //if(table->IsRowDeleted(rowId)) continue;
 
-        T key = node->cells[q].key;
+    uint16_t deletedCount = 0;
+    for(uint16_t i = 0;i<node->header.numCells;i++){
+        uint32_t rowId = node->cells[i].rowId;
+        if(table->IsRowDeleted(rowId)) continue;
+
+        T key = node->cells[i].key;
         if(L<=key && key<=R){
             table->MarkRowDeleted(rowId);
             deletedCount++;
             continue;
         }
-
-        if(p!=q) memcpy(&node->cells[p], &node->cells[q], LEAF_CELL_SIZE);
-        p++;
     }
     
-    node->header.numCells = p;
 
     return deletedCount;
 }
