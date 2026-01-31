@@ -1,24 +1,32 @@
 // CommandParser.cpp
 
-#include "CommandParser.h"
+// DONT RLY NEED THIS 
+
+/*#include "CommandParser.h"
 #include "Common.h"
 
 #include <sstream>
 #include <algorithm>
 #include <iomanip> // quoted
 
-ParsedCommand CommandParser::Parse(const string& line) {
-    ParsedCommand cmd;
-    cmd.isValid = false;
-    
+CommandParser::ParsedCommand CommandParser::Parse(const string& line) {
+    CommandParser::ParsedCommand cmd;
     stringstream ss(line);
     string token;
-    
-    if (!(ss >> token)) return cmd; // Empty line
+    if (!(ss >> token)) return cmd;
     
     // Normalize to upper case for checking, but keep original for values
     std::string upperToken = token;
     std::transform(upperToken.begin(), upperToken.end(), upperToken.begin(), ::toupper);
+
+    for(auto& t : CommandParser::TYPES){
+        if(upperToken == t){
+            //assign t
+            cmd.type = t;
+        }
+    }
+    cmd.errorMessage = "Unknown Command: "+token;
+    return cmd;
 
     if (upperToken == "CREATE") {
         std::string keyword;
