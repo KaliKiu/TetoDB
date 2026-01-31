@@ -33,14 +33,14 @@ Table::Table(const string &name, const string &meta)
 Table::Table(const string &name, const string &meta, uint32_t rowCount) 
     : tableName(name), rowCount(rowCount), rowSize(ROW_HEADER_SIZE), metaName(meta), pager(new Pager(meta+"_"+name+".db"))
 {
-    while(!freeList.empty()) freeList.pop();
+    while(!freeList.empty()) freeList.pop_back();
 }
 
 Table::~Table(){
     for(Column* c : schema) delete c;
     schema.clear();
     
-    for(auto const& [colName, indexing] : colIdx) {
+    for(auto const& [colName, indexing] : colIdx){
         delete indexing;
     }
     delete pager;
@@ -150,13 +150,13 @@ void Table::MarkRowDeleted(uint32_t rowId){
     uint8_t flag = 1; // 1 = Dead
     memcpy(slot, &flag, sizeof(uint8_t));
 
-    freeList.push(rowId);
+    freeList.push_back(rowId);
 }
 
-uint32_t Table::GetNextRowId() {
-    if (!freeList.empty()) {
-        uint32_t id = freeList.top();
-        freeList.pop();
+uint32_t Table::GetNextRowId(){
+    if(!freeList.empty()){
+        uint32_t id = freeList.back();
+        freeList.pop_back();
         return id;
     }
     return rowCount++;
@@ -210,7 +210,7 @@ uint32_t Table::DeleteRange(const string& colName, void* L, void* R){
 
     Column* col = colPtr[colName];
     switch(col->type){
-        case INT: DeleteScan<int32_t>(col, L, R);
+        case INT: return DeleteScan<int32_t>(col, L, R);
         // other cases
     }
 }

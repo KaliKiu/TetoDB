@@ -70,7 +70,7 @@ public:
     string metaName;
     string tableName;
     vector<Column*> schema;
-    stack<uint32_t> freeList;
+    vector<uint32_t> freeList;
     map<string, BtreeIndex*> colIdx;
     map<string, Column*> colPtr;
     Pager* pager;

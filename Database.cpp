@@ -160,10 +160,7 @@ void Database::FlushToMeta() {
             else ofs << c->columnName << " " << (uint8_t)c->type << " " << c->size << " " << c->offset << endl;
         }
         ofs << table->freeList.size() << endl;
-        while(!table->freeList.empty()){
-            ofs << table->freeList.top() << " ";
-            table->freeList.pop();
-        }
+        for(uint32_t i : table->freeList) ofs << i << " ";
         ofs << endl;
     }
     ofs.close();
@@ -200,7 +197,7 @@ void Database::LoadFromMeta(){
             for(uint32_t k=0; k<freeListSize; k++) {
                 uint32_t id;
                 ifs >> id;
-                t->freeList.push(id);
+                t->freeList.push_back(id);
             }
         }
 
