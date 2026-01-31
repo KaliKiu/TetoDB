@@ -130,7 +130,7 @@ void ProcessDotCommand(const string &line){
             
             // Check if this INT column has an active B-Tree pager
             if(c->type == INT){
-                if(t->indexPagers.count(c->columnName)) indexStatus = "YES";
+                if(t->colIdx.count(c->columnName)) indexStatus = "YES";
                 else indexStatus = "NO";
             }
 
@@ -204,7 +204,7 @@ void ExecuteCommand(const string &line){
             string col = cmd.args[0];
             int32_t l = stoi(cmd.args[1]);
             int32_t r = stoi(cmd.args[2]);
-            Database::GetInstance().SelectWithRange(t, col, l, r, rows);
+            Database::GetInstance().SelectWithRange(t, col, &l, &r, rows);
         }
         
         PrintTable(rows, t);
@@ -221,7 +221,7 @@ void ExecuteCommand(const string &line){
             string col = cmd.args[0];
             int32_t l = stoi(cmd.args[1]);
             int32_t r = stoi(cmd.args[2]);
-            deletedCount = Database::GetInstance().DeleteWithRange(t, col, l, r);
+            deletedCount = Database::GetInstance().DeleteWithRange(t, col, &l, &r);
         }
 
         cout<<"Deleted " << deletedCount << " rows."<<endl;

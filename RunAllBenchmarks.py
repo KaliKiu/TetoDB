@@ -12,7 +12,7 @@ RUN_CONFIG = [
     (10000, 2),
     (1000000, 2),
     (10000000, 2),
-    (100000000, 1) # Warning: This will take a significant amount of time
+    # (100000000, 1) # Warning: This will take a significant amount of time
 ]
 
 def run_benchmark(num_rows, run_index):
