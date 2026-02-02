@@ -47,67 +47,23 @@ namespace CommandParser {
             int max;
         };
 
-    std::unique_ptr<Command> parseCreate(std::vector<std::string> args){
+     
+   
+    //functions
 
-    }
-    std::unique_ptr<Command> parseInsert(std::vector<std::string> args){
+    std::unique_ptr<Command> parseCreate(const std::vector<std::string>& args);
+    std::unique_ptr<Command> parseInsert(const std::vector<std::string>& args);
+    std::unique_ptr<Command> parseSelect(const std::vector<std::string>& args);
+    std::unique_ptr<Command> parseDelete(const std::vector<std::string>& args);
+    std::unique_ptr<Command> parseSytem(const std::vector<std::string>& args);
 
-    }
-    std::unique_ptr<Command> parseSelect(std::vector<std::string> args){
-
-    }
-    std::unique_ptr<Command> parseDelete(std::vector<std::string> args){
-
-    }
-    std::unique_ptr<Command> parseSytem(std::vector<std::string> args){
-
-    }
-    inline static const std::map<std::string,std::function<std::unique_ptr<Command>(const std::vector<std::string>&)>> parseFunctions={
-        {"CREATE",parseCreate},
-        {"INSERT",parseInsert},
-        {"SELECT",parseSelect},
-        {"DELETE",parseDelete} 
-    };
-
-    std::vector<std::string> splitArgs(const std::string& input) {
-        std::vector<std::string> args;
-        std::string arg;
-        bool inQuotes = false;
-
-        for (size_t i = 0; i < input.size(); ++i) {
-            char t = input[i];
-
-            if (t == '"') {
-                inQuotes = !inQuotes;
-                continue;
-            }
-            // split on whitespace if not inside quotes
-            if (!inQuotes && std::isspace(static_cast<unsigned char>(t))) {
-                if (!arg.empty()) {
-                    args.push_back(arg);
-                    arg.clear();
-                }
-            } else {
-                arg += t;
-            }
-        }
-        if (!arg.empty())
-            args.push_back(arg);
-
-        return args;
-    }
     
-    std::unique_ptr<Command> parse(std::string& input){
-        auto args = splitArgs(input);
-        if(args.empty())return nullptr;
-        std::string cmd = args[0];
-        std::transform(cmd.begin(), cmd.end(), cmd.begin(), ::toupper);
-        
-        //search in map<string,function> if string exists, call respective parse<Type> function
-        if(auto it = parseFunctions.find(cmd);it !=parseFunctions.end()){
-            return it->second(args);
-        }
-        //if something went wrong:
-        return nullptr;
-    }
+    
+    extern std::map<std::string, std::function<std::unique_ptr<Command>(const std::vector<std::string>&)>> parseFunctions;
+
+
+    std::vector<std::string> splitArgs(const std::string& input);
+    std::unique_ptr<Command> parse(std::string& input);
+    
+    
 };

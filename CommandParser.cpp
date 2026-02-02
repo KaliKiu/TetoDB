@@ -1,139 +1,71 @@
-// CommandParser.cpp
 
-// DONT RLY NEED THIS 
-
-/*#include "CommandParser.h"
+#include "CommandParser.h"
 #include "Common.h"
 
 #include <sstream>
 #include <algorithm>
-#include <iomanip> // quoted
+#include <iomanip>
+#include <map>
 
-CommandParser::ParsedCommand CommandParser::Parse(const string& line) {
-    CommandParser::ParsedCommand cmd;
-    stringstream ss(line);
-    string token;
-    if (!(ss >> token)) return cmd;
-    
-    // Normalize to upper case for checking, but keep original for values
-    std::string upperToken = token;
-    std::transform(upperToken.begin(), upperToken.end(), upperToken.begin(), ::toupper);
+namespace CommandParser{
+    using Commandptr = std::unique_ptr<CommandParser::Command>;
+    std::map<std::string, std::function<std::unique_ptr<CommandParser::Command>(const std::vector<std::string>&)>> parseFunctions={
+        {"CREATE", CommandParser::parseCreate},
+        {"INSERT", CommandParser::parseInsert},
+        {"SELECT", CommandParser::parseSelect},
+        {"DELETE", CommandParser::parseDelete}
+    };
 
-    for(auto& t : CommandParser::TYPES){
-        if(upperToken == t){
-            //assign t
-            cmd.type = t;
-        }
-    }
-    cmd.errorMessage = "Unknown Command: "+token;
-    return cmd;
+    std::vector<std::string> CommandParser::splitArgs(const std::string& input) {
+        std::vector<std::string> args;
+        std::string arg;
+        bool inQuotes = false;
 
-    if (upperToken == "CREATE") {
-        std::string keyword;
-        ss >> keyword; 
-        if (keyword != "TABLE") {
-            cmd.errorMessage = "Syntax Error: Expected 'TABLE' after CREATE";
-            return cmd;
-        }
-        if (!(ss >> cmd.tableName)) {
-            cmd.errorMessage = "Syntax Error: Missing table name";
-            return cmd;
-        }
-        
-        std::string colName, colType;
-        uint16_t colSize;
-        while (ss >> colName >> colType >> colSize) {
-            cmd.args.push_back(colName);
-            cmd.args.push_back(colType);
-            cmd.args.push_back(to_string(colSize));
-        }
-        cmd.type = "CREATE";
-        cmd.isValid = true;
-    } 
-    else if (upperToken == "INSERT") {
-        std::string keyword;
-        ss >> keyword; 
-        if (keyword != "INTO") {
-             cmd.errorMessage = "Syntax Error: Expected 'INTO' after INSERT";
-             return cmd;
-        }
-        if (!(ss >> cmd.tableName)) {
-             cmd.errorMessage = "Syntax Error: Missing table name";
-             return cmd;
-        }
+        for (size_t i = 0; i < input.size(); ++i) {
+            char t = input[i];
 
-        // Capture the rest of the line as args
-        std::string val;
-        while (ss >> quoted(val)) { // Use quoted to handle "strings with spaces" if needed
-             cmd.args.push_back(val);
-        }
-        // Basic check: Insert needs at least one value? (Ideally check against schema later)
-        cmd.type = "INSERT";
-        cmd.isValid = true;
-    }
-    else if (upperToken == "SELECT") {
-        std::string keyword;
-        ss >> keyword; 
-        if (keyword != "FROM") {
-             cmd.errorMessage = "Syntax Error: Expected 'FROM' after SELECT";
-             return cmd;
-        }
-        if (!(ss >> cmd.tableName)) {
-             cmd.errorMessage = "Syntax Error: Missing table name";
-             return cmd;
-        }
-        
-        cmd.type = "SELECT";
-        cmd.isValid = true;
-
-        std::string whereKw;
-        if (ss >> whereKw) {
-            if (whereKw == "WHERE") {
-                std::string col, l, r;
-                if (ss >> col >> l >> r) {
-                    cmd.args.push_back(col);
-                    cmd.args.push_back(l);
-                    cmd.args.push_back(r);
-                } else {
-                    cmd.isValid = false;
-                    cmd.errorMessage = "Syntax Error: WHERE clause needs <col> <min> <max>";
+            if (t == '"') {
+                inQuotes = !inQuotes;
+                continue;
+            }
+            // split on whitespace if not inside quotes
+            if (!inQuotes && std::isspace(static_cast<unsigned char>(t))) {
+                if (!arg.empty()) {
+                    args.push_back(arg);
+                    arg.clear();
                 }
+            } else {
+                arg += t;
             }
         }
+        if (!arg.empty())
+            args.push_back(arg);
+
+        return args;
     }
-    else if (upperToken == "DELETE") {
-        std::string keyword;
-        ss >> keyword; 
-        if (keyword != "FROM") {
-             cmd.errorMessage = "Syntax Error: Expected 'FROM' after DELETE";
-             return cmd;
-        }
-        if (!(ss >> cmd.tableName)) {
-             cmd.errorMessage = "Syntax Error: Missing table name";
-             return cmd;
-        }
+    Commandptr CommandParser::parseCreate(const std::vector<std::string>& args){
+
+    }
+    Commandptr CommandParser::parseInsert(const std::vector<std::string>& args){
+
+    }
+    Commandptr CommandParser::parseSelect(const std::vector<std::string>& args){
+
+    }
+    Commandptr CommandParser::parseDelete(const std::vector<std::string>& args){
+
+    }
+    Commandptr CommandParser::parse(std::string& input){
+        auto args = splitArgs(input);
+        if(args.empty())return nullptr;
+        std::string cmd = args[0];
+        std::transform(cmd.begin(), cmd.end(), cmd.begin(), ::toupper);
         
-        cmd.type = "DELETE";
-        cmd.isValid = true;
-
-        std::string whereKw;
-        if (ss >> whereKw) {
-            if (whereKw == "WHERE") {
-                string col, l, r;
-                if (ss >> col >> l >> r) {
-                    cmd.args.push_back(col);
-                    cmd.args.push_back(l);
-                    cmd.args.push_back(r);
-                } else {
-                    cmd.isValid = false;
-                    cmd.errorMessage = "Syntax Error: WHERE clause needs <col> <min> <max>";
-                }
-            }
+        //search in map<string,function> if string exists, call respective parse<Type> function
+        if(auto it =parseFunctions.find(cmd);it !=parseFunctions.end()){
+            return it->second(args);
         }
+        //if something went wrong:
+        return nullptr;
     }
-    else {
-        cmd.errorMessage = "Unknown command: " + token;
-    }
-
-    return cmd;
 }
